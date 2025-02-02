@@ -1,8 +1,3 @@
-
-#include <Servo.h>
-
-Servo clawServo;  // create servo object to control a servo
-
 // motor pins
 int leftPin1 = 2;
 int leftPin2 = 3;
@@ -17,15 +12,23 @@ int color3 = 9;
 int EN = 13;
 int colorOut = 12;
 
-int redMin = 67;
-int redMax = 900;
-int greenMin = 102;
-int greenMax = 1300;
+// Ultrasonic
+
+long duration = 0, distance = 0;
+
+int redMin = 67; 
+int redMax = 900; 
+int greenMin = 102; 
+int greenMax = 1300; 
 int blueMin = 95;
 int blueMax = 1000;
 
 int redPW, greenPW, bluePW = 0;
 int red, blue, green;
+
+int time180 = 6;
+int time90 = 3;
+int stop = 0;
 
 typedef enum {
   FORWARD,
@@ -42,7 +45,11 @@ int prevColor = 0;
 int currColor = 0;
 int numRings = 0;
 
+
+
 void setup() {
+  // put your setup code here, to run once:
+
   // motor control
   pinMode(leftPin1, OUTPUT);
   pinMode(leftPin2, OUTPUT);
@@ -58,20 +65,32 @@ void setup() {
   pinMode(EN, OUTPUT);
   digitalWrite(EN, LOW);
 
-  digitalWrite(color0, HIGH);
-  digitalWrite(color1, LOW);
+	digitalWrite(color0, HIGH);
+	digitalWrite(color1, LOW);
 
   Serial.begin(9600);
 
   // speed control
-  pinMode(10, OUTPUT);
+  pinMode(10, OUTPUT); 
   pinMode(11, OUTPUT);
 
-  clawServo.attach(A0);  // attaches the servo on pin A0 to the servo object
+  
+  pinMode(A4, OUTPUT);
+  pinMode(A5, INPUT);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  digitalWrite(A4, LOW);  // Added this line
+  delayMicroseconds(2); // Added this line
+  digitalWrite(A4, HIGH);
+  delayMicroseconds(10); // Added this line
+  digitalWrite(A4, LOW);
+  duration = pulseIn(A5, HIGH);
+  distance = (duration/2) / 29.1;
+  Serial.println(distance);
+
+
 
   // Color Sensor
   redPW = getRed();
@@ -85,136 +104,68 @@ void loop() {
   bluePW = getBlue();
   blue = map(bluePW, blueMin, blueMax, 255, 0);
   delay(200);
+/*
+	Serial.print("Red = ");
+	Serial.print(red);
+	Serial.print(" - Green = ");
+	Serial.print(green);
+	Serial.print(" - Blue = ");
+	Serial.println(blue);
+*/
 
-  // R = 1, G = 2, B = 3
 
-  switch (seq) {
-    // On start, prevColor == 0, so move forward until not detecting black
-    case 0:
-      if (red < 200 && (green < 200 && blue < 200)) {  // if black keep moving forward
-        state = FORWARD;
-      } else {  // if not black, stop and store color
-        state = STOP;
-        seq = 1;
-        delay(200);
-        // track color
-        if (red > 200) {
-          prevColor = 1;
-        } else if (blue > 200 && green > 200) {
-          prevColor = 3;
-        } else if (green > 200) {
-          prevColor = 2;
-        }
-      }
-      break;
-    case 1:
-      // turn left until hit black
-      if (red > 200 || (green > 200 || blue > 200)) {
-        state = LEFT;
-        Serial.println("1");
-      } else {
-        state = STOP;
-        seq = 2;
-        delay(200);
-      }
-      break;
-    case 2:
-      time++;
-      state = RIGHT;
-      Serial.println(time);
-      if (red > 200 || (green > 200 || blue > 200)) {
-        seq = 3;
-      }
-      break;
-    case 3:
-      time++;
-      state = RIGHT;
-      Serial.println(time);
-      if (red < 200 && (green < 200 && blue < 200)) {
-        seq = 4;
-        state = STOP;
-        rotTime = (int)time / 2;
-        Serial.println("rotate time is: " + rotTime);
-      }
-      break;
-    case 4:
-      time--;
-      state = LEFT;
-      Serial.println(time);
-      if (time <= rotTime) {
-        seq = 5;
-        state = STOP;
-        delay(200);
-      }
-      break;
-    case 5:
-      state = FORWARD;
-      if (red > 200) {
-        currColor = 1;
-      } else if (blue > 200 && green > 200) {
-        currColor = 3;
-      } else if (green > 200) {
-        currColor = 2;
-      }
-
-      if (currColor != prevColor) {
-        prevColor = currColor;
-        numRings++;
-        Serial.println(numRings);
-        if (numRings == 4) {
-          seq = 6;
-          state = STOP;
-          delay(100);
-        }
-      }
-      break;
-    case 6:
-      state = FORWARD; // need to go forwards (or backwards) a certain distance**********
-      for (int pos = 70; pos >= 0; pos--) {  // goes from 0 degrees to 90 degrees
-        clawServo.write(pos);
-        delay(10);
-      }
-      seq = 7;
-      break;
-    case 7:
+  
+  if (green < 150 && blue < 150 && red < 150 && stop == 1){
       state = STOP;
-      break;
-  } 
+  }
+  else if (distance > 15 && time == 0){
+    state = FORWARD;
+  }
+  else if (time == 0) {
+    stop = 1;
+    if (red > 170){
+      time = time180;
+      state = RIGHT;
+    }
+    else if (blue > 150 && green > 150){
+      time = time90;
+      state = LEFT;
+    }
+    else if (green > 150){
+      time = time90;
+      state = RIGHT;
+    }
+  }
 
-  // test rgb values
-  Serial.print("Red = ");
-  Serial.print(red);
-  Serial.print(" - Green = ");
-  Serial.print(green);
-  Serial.print(" - Blue = ");
-  Serial.println(blue);
 
-  // Motor Control
-
-  //Controlling speed (0 = off and 255 = max speed):
-  analogWrite(10, 100);  //ENA pin
-  analogWrite(11, 100);  //ENB pin
-
+  if (time > 0) {
+    time--;
+  }
+ 
+  //Controlling speed (0 = off and 255 = max speed):     
+  analogWrite(10, 110); //ENA pin
+  analogWrite(11, 110); //ENB pin
+  
   switch (state) {
-    case FORWARD:  // forward
+    case FORWARD: // forward
       digitalWrite(leftPin1, HIGH);
       digitalWrite(leftPin2, LOW);
       digitalWrite(rightPin1, HIGH);
       digitalWrite(rightPin2, LOW);
       break;
-    case LEFT:  // left
+    case LEFT: // left
       digitalWrite(leftPin1, LOW);
       digitalWrite(leftPin2, HIGH);
       digitalWrite(rightPin1, HIGH);
       digitalWrite(rightPin2, LOW);
       break;
-    case RIGHT:  // right
+    case RIGHT: // right
       digitalWrite(leftPin1, HIGH);
       digitalWrite(leftPin2, LOW);
       digitalWrite(rightPin1, LOW);
       digitalWrite(rightPin2, HIGH);
       break;
-    case STOP:  // stop
+    case STOP: // stop
       digitalWrite(leftPin1, LOW);
       digitalWrite(leftPin2, LOW);
       digitalWrite(rightPin1, LOW);
