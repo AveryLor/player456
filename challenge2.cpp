@@ -115,7 +115,7 @@ void loop() {
 
 
   
-  if (green < 200 && blue < 200 && red < 200 && stop == 1){
+  if (green < 150 && blue < 150 && red < 150 && stop == 1){
       state = STOP;
   }
   else if (distance > 15 && time == 0){
@@ -123,15 +123,15 @@ void loop() {
     stop = 1;
   }
   else {
-    if (red > 200){
+    if (red > 170){
       time = time180;
       state = RIGHT;
     }
-    else if (blue > 200 && green > 200){
+    else if (blue > 150 && green > 150){
       time = time90;
       state = LEFT;
     }
-    else if (green > 200){
+    else if (green > 150){
       time = time90;
       state = RIGHT;
     }
