@@ -120,9 +120,9 @@ void loop() {
   }
   else if (distance > 15 && time == 0){
     state = FORWARD;
-    stop = 1;
   }
-  else {
+  else if (time == 0) {
+    stop = 1;
     if (red > 170){
       time = time180;
       state = RIGHT;
